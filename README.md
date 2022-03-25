@@ -1,66 +1,97 @@
 # ns8-openldap
 
-This is a template module for [NethServer 8](https://github.com/NethServer/ns8-core).
-To start a new module from it:
+Draft
 
-1. Click on [Use this template](https://github.com/NethServer/ns8-openldap/generate).
-   Name your repo with `ns8-` prefix (e.g. `ns8-mymodule`). 
-   Do not end your module name with a number, like ~~`ns8-baaad2`~~!
+## Provision
 
-1. An automated initialization workflow starts: wait for its completion.
-   You can follow the run inside the "Actions" tab, the workflow is named "Initial commit"
+Add a node to a domain:
 
-1. You can now clone the repository
+    api-cli run provision-domain --agent module/openldap1 --data - <<EOF
+    {
+        "domain":"$(hostname -d)"
+    }
+    EOF
 
-1. Edit this `README.md` file, by replacing this section with your module
-   description
+Further OpenLDAP instances for the same `domain` are **joined** together
+in a multi-master cluster. The command is almost the same: just change the
+`--agent` argument, e.g. `--agent module/openldap2` and so on.
 
-1. Commit and push your local changes
+## Setup
 
-## Install
+Enable server modules and configure syncronization:
 
-Instantiate the module with:
+```
+ldapmodify -H ldapi:/// <<EOF
 
-    add-module ghcr.io/nethserver/openldap:latest 1
+dn: cn=module,cn=config
+changetype: add
+cn: module
+objectClass: olcModuleList
+olcModulePath: /opt/bitnami/openldap/lib/openldap/
+olcModuleLoad: syncprov.so
 
-The output of the command will return the instance name.
-Output example:
+dn: olcOverlay=syncprov,olcDatabase={2}mdb,cn=config
+changetype: add
+objectClass: olcOverlayConfig
+objectClass: olcSyncProvConfig
+olcOverlay: syncprov
 
-    {"module_id": "openldap1", "image_name": "openldap", "image_url": "ghcr.io/nethserver/openldap:latest"}
+dn: cn=config
+changetype: modify
+replace: olcServerID
+olcServerID: 2
 
-## Configure
+dn: olcDatabase={2}mdb,cn=config
+changetype:modify
+replace: olcSyncrepl
+olcSyncrepl: rid=001
+  provider=ldap://10.5.4.1:20001
+  binddn="cn=admin,dc=dp,dc=nethserver,dc=net"
+  bindmethod=simple
+  credentials=Nethesis,1234
+  searchbase="dc=dp,dc=nethserver,dc=net"
+  type=refreshAndPersist
+  retry="5 5 300 +"
+  timeout=5
+-
+replace: olcMirrorMode
+olcMirrorMode: TRUE
+EOF
+```
 
-Let's assume that the openldap instance is named `openldap1`.
+Create the top level entry:
 
-Launch `configure-module`, by setting the following parameters:
-- `<MODULE_PARAM1_NAME>`: <MODULE_PARAM1_DESCRIPTION>
-- `<MODULE_PARAM2_NAME>`: <MODULE_PARAM2_DESCRIPTION>
-- ...
+```
+ldapadd -x -D cn=admin,dc=dp,dc=nethserver,dc=net -w Nethesis,1234 -H ldapi:///  <<EOF
+dn: dc=dp,dc=nethserver,dc=net
+objectClass: top
+objectClass: dcObject
+objectClass: organization
+dc: dp
+o: dp.nethserver.net
 
-Example:
+dn: ou=users,dc=dp,dc=nethserver,dc=net
+objectClass: top
+objectClass: organizationalUnit
+ou: users
 
-    api-cli run module/openldap1/configure-module --data '{}'
+dn: ou=groups,dc=dp,dc=nethserver,dc=net
+objectClass: top
+objectClass: organizationalUnit
+ou: groups
 
-The above command will:
-- start and configure the openldap instance
-- (describe configuration process)
-- ...
+dn: cn=users,ou=groups,dc=dp,dc=nethserver,dc=net
+objectClass: posixGroup
+cn: users
+gidNumber: 1000
 
-Send a test HTTP request to the openldap backend service:
+dn: uid=admin,ou=users,dc=dp,dc=nethserver,dc=net
+objectClass: posixAccount
+gecos: Administrator
+uid: admin
+uidNumber: 1000
+gidNumber: 1000
+userPassword:: e0NSWVBUfSQ2JHJpSTQzenJ4VE1KWEcyNEIkc2t0WGNsa3JOUnN5ZG5OclFJa
 
-    curl http://127.0.0.1/openldap/
-
-## Uninstall
-
-To uninstall the instance:
-
-    remove-module --no-preserve openldap1
-
-## Testing
-
-Test the module using the `test-module.sh` script:
-
-
-    ./test-module.sh <NODE_ADDR> ghcr.io/nethserver/openldap:latest
-
-The tests are made using [Robot Framework](https://robotframework.org/)
+EOF
+```

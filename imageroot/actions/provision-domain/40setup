@@ -1,0 +1,49 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2021 Nethesis S.r.l.
+# http://www.nethesis.it - nethserver@nethesis.it
+#
+# This script is part of NethServer.
+#
+# NethServer is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License,
+# or any later version.
+#
+# NethServer is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NethServer.  If not, see COPYING.
+#
+
+set -e
+exec 1>&2
+
+podman exec -i openldap ldapmodify -H ldapi:/// <<EOF
+dn: cn=config
+changeType: modify
+replace: olcServerID
+olcServerID: ${SERVER_ID}
+EOF
+
+# TODO syncrepl configuration
+
+# dn: olcDatabase={2}mdb,cn=config
+# changetype:modify
+# replace: olcSyncrepl
+# olcSyncrepl: rid=001
+#   provider=ldap://10.5.4.1:20001
+#   binddn="cn=admin,dc=dp,dc=nethserver,dc=net"
+#   bindmethod=simple
+#   credentials=Nethesis,1234
+#   searchbase="dc=dp,dc=nethserver,dc=net"
+#   type=refreshAndPersist
+#   retry="5 5 300 +"
+#   timeout=5
+# -
+# replace: olcMirrorMode
+# olcMirrorMode: TRUE

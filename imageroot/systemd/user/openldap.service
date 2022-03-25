@@ -1,28 +1,36 @@
-#
-# This systemd unit starts a openldap instance using Podman.
-# Most parts of this file come from podman-generate-systemd.
-#
 [Unit]
-Description=openldap server
+Description=OpenLDAP directory server
 
 [Service]
 Environment=PODMAN_SYSTEMD_UNIT=%n
+Environment=LDAP_ADMIN_USERNAME=admin
+Environment=LDAP_ADMIN_PASSWORD=adminpassword
+Environment=LDAP_ALLOW_ANON_BINDING=yes
+Environment=LDAP_PORT_NUMBER=10389
+Environment=LDAP_EXTRA_SCHEMAS=cosine,inetorgperson,nis
 EnvironmentFile=%S/state/environment
-WorkingDirectory=%S/state
 Restart=always
+TimeoutStopSec=70
 ExecStartPre=/bin/rm -f %t/openldap.pid %t/openldap.ctr-id
 ExecStart=/usr/bin/podman run \
     --detach \
+    --env=LDAP_* \
     --conmon-pidfile=%t/openldap.pid \
     --cidfile=%t/openldap.ctr-id \
     --cgroups=no-conmon \
+    --log-opt=tag=%u \
     --replace --name=%N \
-    --publish=127.0.0.1:${TCP_PORT}:8080 \
-    ${ECHO_SERVER_IMAGE}
+    --volume=%h/ldifs:/ldifs:Z \
+    --volume=openldap-data:/bitnami/openldap:Z \
+    --publish=127.0.0.1:${TCP_PORT}:10389 \
+    --publish=${IP_ADDRESS}:${TCP_PORT}:10389 \
+    ${OPENLDAP_IMAGE}
+ExecStartPost=/usr/bin/bash -c "while ! exec 3<>/dev/tcp/127.0.0.1/${TCP_PORT}; do sleep 1 ; done"
 ExecStop=/usr/bin/podman stop --ignore --cidfile %t/openldap.ctr-id -t 10
 ExecStopPost=/usr/bin/podman rm --ignore -f --cidfile %t/openldap.ctr-id
 PIDFile=%t/openldap.pid
 Type=forking
+WorkingDirectory=%S/state
 
 [Install]
 WantedBy=default.target
