@@ -1,0 +1,54 @@
+#!/bin/ash
+
+#
+# Copyright (C) 2022 Nethesis S.r.l.
+# http://www.nethesis.it - nethserver@nethesis.it
+#
+# This script is part of NethServer.
+#
+# NethServer is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License,
+# or any later version.
+#
+# NethServer is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NethServer.  If not, see COPYING.
+#
+
+# shellcheck shell=dash disable=SC3001
+
+set -e # exit on error
+
+if ldapwhoami >/dev/null 2>&1 ; then
+    echo "[ERROR] slapd must be stopped before running $0" 1>&2
+    exit 1
+fi
+
+# Read (and decode) the olcRootPW from the local database:
+read -r rootpass < <(slapcat -o ldif_wrap=no -F conf.d -H 'ldap:///olcDatabase={0}config,cn=config??base' 2>/dev/null | awk -e '
+/^olcRootPW: / { print $2 }
+/^olcRootPW:: / { print $2 | "base64 -d" ; close("base64 -d") ; print "" }
+')
+
+# Retrieve the remote server URLs and build a comma-separated URL list:
+read -r endpoints < <(slapcat -o ldif_wrap=no -F conf.d -H 'ldap:///cn=config??base' 2>/dev/null | awk -v "selfid=${LDAP_SERVERID}" -e '
+/^olcServerID: / {
+    if (selfid != $2) {
+        printf "%s%s" sep $3
+        sep=","
+    }
+}
+END { print "" }
+')
+
+# Update syncrepl configuration on remote servers:
+ldapsearch -LLL -o ldif_wrap=no -b cn=config -x -D cn=config -w "${rootpass}" -H "${endpoints}" \
+    '(|(objectClass=olcDatabaseConfig)(objectClass=olcGlobal))' olcSyncrepl olcServerID | \
+    awk -v "targetid=${LDAP_SERVERID}" -f "${FILTERS_DIR}/update-syncrepl.awk" | \
+    tee "leave-domain.ldif" | \
+    ldapmodify -c -x -D cn=config -w "${rootpass}" -H "${endpoints}"

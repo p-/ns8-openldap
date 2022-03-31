@@ -1,7 +1,7 @@
-#!/usr/bin/env python3
+#!/bin/bash
 
 #
-# Copyright (C) 2022 Nethesis S.r.l.
+# Copyright (C) 2021 Nethesis S.r.l.
 # http://www.nethesis.it - nethserver@nethesis.it
 #
 # This script is part of NethServer.
@@ -20,10 +20,6 @@
 # along with NethServer.  If not, see COPYING.
 #
 
-import json
-import sys
-import agent
+exec 1>&2 # Send any output to stderr, to not alter the action response protocol
 
-config = {}
-
-json.dump(config, fp=sys.stdout)
+systemctl --user disable --now openldap

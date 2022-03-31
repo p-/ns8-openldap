@@ -21,29 +21,8 @@
 #
 
 set -e
+
 exec 1>&2
 
-podman exec -i openldap ldapmodify -H ldapi:/// <<EOF
-dn: cn=config
-changeType: modify
-replace: olcServerID
-olcServerID: ${SERVER_ID}
-EOF
-
-# TODO syncrepl configuration
-
-# dn: olcDatabase={2}mdb,cn=config
-# changetype:modify
-# replace: olcSyncrepl
-# olcSyncrepl: rid=001
-#   provider=ldap://10.5.4.1:20001
-#   binddn="cn=admin,dc=dp,dc=nethserver,dc=net"
-#   bindmethod=simple
-#   credentials=Nethesis,1234
-#   searchbase="dc=dp,dc=nethserver,dc=net"
-#   type=refreshAndPersist
-#   retry="5 5 300 +"
-#   timeout=5
-# -
-# replace: olcMirrorMode
-# olcMirrorMode: TRUE
+# Enable and start the service
+systemctl --user enable --now openldap.service

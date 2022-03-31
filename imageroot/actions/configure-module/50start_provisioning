@@ -1,0 +1,94 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2021 Nethesis S.r.l.
+# http://www.nethesis.it - nethserver@nethesis.it
+#
+# This script is part of NethServer.
+#
+# NethServer is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License,
+# or any later version.
+#
+# NethServer is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NethServer.  If not, see COPYING.
+#
+
+import agent
+import json
+import sys
+import os
+import secrets
+import string
+import subprocess
+import cluster.userdomains
+
+request = json.load(sys.stdin)
+domain = request['domain'].lower()
+base_dn = 'dc=' + domain.replace('.', ',dc=')
+node_id = os.environ['NODE_ID']
+server_id = int(os.environ['MODULE_ID'].removeprefix("openldap"))
+alphabet = string.ascii_letters + string.digits + '-_+@:,/'
+provision_type = request['provision']
+
+
+podman_cmd = ["podman", "run", "--rm",
+    "--log-driver=none",
+    "--network=host",
+    "--env=LDAP_*",
+    "--volume=data:/var/lib/openldap:Z",
+    os.environ['OPENLDAP_SERVER_IMAGE']
+]
+
+with agent.redis_connect() as rdb:
+    # Retrieve the node VPN IP address to bind on it
+    ip_address = rdb.hget(f'node/{node_id}/vpn', 'ip_address')
+    agent.assert_exp(ip_address is not None)
+    domains = cluster.userdomains.get_internal_domains(rdb)
+
+if provision_type == 'join-domain':
+    endpoints = []
+    for provider in domains[domain]['providers']:
+        if provider['host'] and provider['port']:
+            endpoints.append(f"ldap://{provider['host']}:{provider['port']}")
+    podman_cmd.append("join-domain")
+    podman_cmd.append(','.join(endpoints))
+
+elif provision_type == 'new-domain':
+    podman_cmd.append("new-domain")
+    os.environ['LDAP_SVCUSER'] = 'ldapservice'
+    agent.set_env('LDAP_SVCUSER', os.environ['LDAP_SVCUSER'])
+    # Generate random passwords for ldapservice
+    os.environ['LDAP_SVCPASS'] = ''.join([secrets.choice(alphabet) for i in range(32)])
+    agent.set_env('LDAP_SVCPASS', os.environ['LDAP_SVCPASS'])
+
+else:
+    print(agent.SD_ERR + "Bad provision value! " + provision_type, file=sys.stderr)
+    sys.exit(1)
+
+
+ldapenv = {
+    'LDAP_DOMAIN': domain,
+    'LDAP_SUFFIX': base_dn,
+    'LDAP_SERVERID': str(server_id),
+    'LDAP_PORT': os.environ['TCP_PORT'],
+    'LDAP_IPADDR': ip_address,
+    'LDAP_LOGTAG': os.environ['MODULE_ID'],
+}
+
+for lvar in ldapenv:
+    agent.set_env(lvar, ldapenv[lvar])
+
+os.environ.update(ldapenv)
+os.environ.update({
+    'LDAP_ADMUSER': request['admuser'],
+    'LDAP_ADMPASS': request['admpass'],
+})
+agent.run_helper(*podman_cmd).check_returncode()
+agent.dump_env() # Persist environment file for Systemd unit

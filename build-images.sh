@@ -19,8 +19,14 @@ if ! buildah containers --format "{{.ContainerName}}" | grep -q nodebuilder-open
     buildah from --name nodebuilder-openldap -v "${PWD}:/usr/src:Z" docker.io/library/node:lts
 fi
 
-echo "Build static UI files with node..."
-buildah run nodebuilder-openldap sh -c "cd /usr/src/ui && yarn install && yarn build"
+if [[ -n $WITH_UI ]]; then
+    echo "Build static UI files with node..."
+    buildah run nodebuilder-openldap sh -c "cd /usr/src/ui && yarn install && yarn build"
+else
+    echo "Skip UI build..."
+    mkdir -p ui/dist
+    touch ui/dist/index.html
+fi
 
 # Add imageroot directory to the container image
 buildah add "${container}" imageroot /imageroot
@@ -30,7 +36,48 @@ buildah config --entrypoint=/ \
     --label='org.nethserver.authorizations=ldapproxy@node:accountprovider cluster:accountprovider' \
     --label="org.nethserver.tcp-ports-demand=1" \
     --label="org.nethserver.rootfull=0" \
-    --label='org.nethserver.images=docker.io/bitnami/openldap:2.4' \
+    --label="org.nethserver.images=${repobase}/openldap-server:${IMAGETAG:-latest}" \
+    "${container}"
+# Commit the image
+buildah commit "${container}" "${repobase}/${reponame}"
+
+# Append the image URL to the images array
+images+=("${repobase}/${reponame}")
+
+# Server image from Alpine OpenLDAP
+reponame="openldap-server"
+container=$(buildah from docker.io/library/alpine:3.15)
+buildah run "${container}" sh <<'EOF'
+apk add --no-cache \
+    gettext \
+    openldap \
+    openldap-overlay-syncprov \
+    openldap-overlay-ppolicy \
+    openldap-overlay-dynlist \
+    openldap-back-mdb \
+    openldap-passwd-sha2 \
+    openldap-clients
+EOF
+
+buildah add "${container}" server/ /
+buildah config \
+    --user=ldap:ldap \
+    --workingdir=/var/lib/openldap \
+    --volume=/var/lib/openldap \
+    --entrypoint='["/entrypoint.sh"]' \
+    --cmd='' \
+    --env=FILTERS_DIR="/usr/local/lib/awk" \
+    --env=TEMPLATES_DIR="/usr/local/lib/templates" \
+    --env=LDAPCONF="/var/lib/openldap/ldap.conf" \
+    --env=LDAP_SVCUSER="ldapservice" \
+    --env=LDAP_SVCPASS="pass" \
+    --env=LDAP_ADMUSER="admin" \
+    --env=LDAP_ADMPASS="secret" \
+    --env=LDAP_DOMAIN="nethserver.test" \
+    --env=LDAP_SUFFIX="dc=nethserver,dc=test" \
+    --env=LDAP_LOGTAG="slapd" \
+    --env=LDAP_LOGLEVEL="16704" \
+    --env=LDAP_DEBUGLEVEL="0" \
     "${container}"
 # Commit the image
 buildah commit "${container}" "${repobase}/${reponame}"

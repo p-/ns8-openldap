@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2021 Nethesis S.r.l.
+# http://www.nethesis.it - nethserver@nethesis.it
+#
+# This script is part of NethServer.
+#
+# NethServer is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License,
+# or any later version.
+#
+# NethServer is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NethServer.  If not, see COPYING.
+#
+
+import agent
+import agent.tasks
+import os
+import sys
+import json
+from agent.ldapproxy import Ldapproxy
+
+request = json.load(sys.stdin)
+
+agent_id = os.environ['AGENT_ID']
+node_id = int(os.environ['NODE_ID'])
+domain = os.environ['LDAP_DOMAIN']
+ldap_suffix = os.environ['LDAP_SUFFIX']
+ip_address = os.environ['LDAP_IPADDR']
+tcp_port = os.environ['LDAP_PORT']
+
+if request['provision'] == 'new-domain':
+    bind_dn = f"cn={os.environ['LDAP_SVCUSER']},{ldap_suffix}"
+    bind_password = os.environ['LDAP_SVCPASS']
+elif request['provision'] == 'join-domain':
+    dominfo = Ldapproxy().get_domain(domain)
+    bind_dn = dominfo['bind_dn']
+    bind_password = dominfo['bind_password']
+
+data={
+    "node": str(node_id),
+    "port": tcp_port,
+    "host": ip_address,
+    "domain": domain,
+    "base_dn": ldap_suffix,
+    "schema": "rfc2307",
+    "tls": "off",
+    "tls_verify": "off",
+    "bind_dn": bind_dn,
+    "bind_password": bind_password,
+}
+
+# Add the account provider discovery information, and advertise this new
+# account provider service instance:
+rdb = agent.redis_connect(privileged=True)
+trx = rdb.pipeline()
+trx.hset(agent_id + '/srv/tcp/ldap', mapping=data)
+trx.publish(agent_id + '/event/account-provider-changed', json.dumps({
+    'domain': domain,
+    'key': agent_id + '/srv/tcp/ldap',
+}))
+trx.execute()

@@ -1,0 +1,38 @@
+#!/bin/ash
+
+#
+# Copyright (C) 2022 Nethesis S.r.l.
+# http://www.nethesis.it - nethserver@nethesis.it
+#
+# This script is part of NethServer.
+#
+# NethServer is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License,
+# or any later version.
+#
+# NethServer is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NethServer.  If not, see COPYING.
+#
+
+# shellcheck shell=dash disable=SC3001
+
+set -e # exit on error
+echo "Generating password hash for ${LDAP_ADMUSER:?}"
+tmpl_admpwh=$(slappasswd -s "${LDAP_ADMPASS:?}" -o module-load=pw-sha2.so -h '{SSHA512}')
+
+# Generate clear-text olcRootPW security token
+tmpl_rootpass="$(slappasswd -g -u)$(slappasswd -g -u)$(slappasswd -g -u)"
+
+export tmpl_admpwh tmpl_rootpass
+
+mkdir conf.d # Fail if already configured!
+echo "Creating ${LDAP_SUFFIX} database for ${LDAP_DOMAIN}"
+slapadd -w -S "${LDAP_SERVERID}" -n 0 -F conf.d < <(envsubst <"${TEMPLATES_DIR}/config.ldif" | tee config.ldif)
+slapadd -w -S "${LDAP_SERVERID}" -b "${LDAP_SUFFIX}" -F conf.d < <(envsubst <"${TEMPLATES_DIR}/mdb0.ldif" | tee mdb0.ldif)
+slaptest -v -F conf.d

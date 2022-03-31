@@ -1,0 +1,34 @@
+#
+# Add a syncrepl configuration (but not the first one!)
+#
+
+dn: cn=config
+changetype: modify
+add: olcServerID
+olcServerID: ${LDAP_SERVERID} ${tmpl_server_url}
+
+dn: olcDatabase={0}config,cn=config
+changetype: modify
+add: olcSyncrepl
+olcSyncrepl: rid=${tmpl_config_rid}
+  provider=${tmpl_server_url}
+  binddn="cn=config"
+  bindmethod=simple
+  credentials=${tmpl_rootpass}
+  searchbase="cn=config"
+  type=refreshAndPersist
+  retry="5 5 300 +"
+  timeout=1
+
+dn: olcDatabase={2}mdb,cn=config
+changetype:modify
+add: olcSyncrepl
+olcSyncrepl: rid=${tmpl_data_rid}
+  provider=${tmpl_server_url}
+  binddn="cn=mdbsync,${LDAP_SUFFIX}"
+  bindmethod=simple
+  credentials=${tmpl_rootpass}
+  searchbase="${LDAP_SUFFIX}"
+  type=refreshAndPersist
+  retry="5 5 300 +"
+  timeout=1

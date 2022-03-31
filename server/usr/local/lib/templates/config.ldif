@@ -1,0 +1,108 @@
+#
+# new-domain provisioning
+#
+
+#
+# LDAP configuration database initialization.
+#
+# See slapd-config(5) for details on configuration options.
+# This file should NOT be world readable.
+#
+
+dn: cn=config
+objectClass: olcGlobal
+cn: config
+olcArgsFile: /var/lib/openldap/run/slapd.args
+olcPidFile: /var/lib/openldap/run/slapd.pid
+olcServerID: ${LDAP_SERVERID} ${tmpl_server_url}
+olcWriteTimeout: 10
+olcLogLevel: ${LDAP_LOGLEVEL}
+
+#
+# Modules
+#
+dn: cn=module,cn=config
+objectClass: olcModuleList
+cn: module
+olcModulepath:	/usr/lib/openldap
+olcModuleload:	back_mdb.so
+olcModuleload:	syncprov.so
+olcModuleload:	dynlist.so
+olcModuleload:  pw-sha2.so
+
+#
+# Schema
+#
+dn: cn=schema,cn=config
+objectClass: olcSchemaConfig
+cn: schema
+
+include: file:///etc/openldap/schema/core.ldif
+include: file:///etc/openldap/schema/cosine.ldif
+include: file:///etc/openldap/schema/nis.ldif
+include: file:///etc/openldap/schema/inetorgperson.ldif
+include: file:///etc/openldap/schema/dyngroup.ldif
+
+#
+# Frontend DB, with global (low-priority) ACL definitions
+#
+dn: olcDatabase=frontend,cn=config
+objectClass: olcDatabaseConfig
+objectClass: olcFrontendConfig
+olcDatabase: frontend
+
+#
+# Config settings
+#
+dn: olcDatabase=config,cn=config
+objectClass: olcDatabaseConfig
+olcDatabase: config
+olcRootPW: ${tmpl_rootpass}
+olcAccess: to * by dn.base="gidNumber=101+uidNumber=100,
+ cn=peercred,cn=external,cn=auth" manage by set="[cn=dom
+ ain admins,ou=Groups,${LDAP_SUFFIX}
+ ]/memberUid & user/uid" read by * none
+
+#
+# Monitor
+#
+dn: olcDatabase=monitor,cn=config
+objectClass: olcDatabaseConfig
+olcDatabase: monitor
+olcRootDN: cn=config
+olcMonitoring: FALSE
+
+#
+# Enable syncprov overlay on config DB
+#
+dn: olcOverlay=syncprov,olcDatabase={0}config,cn=config
+objectClass: olcOverlayConfig
+objectClass: olcSyncProvConfig
+olcOverlay: syncprov
+
+#
+# Configure MDB
+#
+dn: olcDatabase=mdb,cn=config
+objectClass: olcDatabaseConfig
+objectClass: olcMdbConfig
+olcDatabase: mdb
+olcSuffix: ${LDAP_SUFFIX}
+olcRootDN: cn=mdbsync,${LDAP_SUFFIX}
+olcRootPW: ${tmpl_rootpass}
+olcDbDirectory:	/var/lib/openldap/openldap-data
+olcDbIndex: objectClass eq
+olcAccess: to attrs=userPassword by dn.base="
+ gidNumber=101+uidNumber=100,cn=peercred,cn=external,cn=aut
+ h" manage by set="[cn=domain admins,ou=Groups,${LDAP_SUFFIX}
+ ]/memberUid & user/uid" manage by * auth
+olcAccess: to * by dn.base="gidNumber=101+uidNumber=100,
+ cn=peercred,cn=external,cn=auth" manage by set="[cn=do
+ main admins,ou=Groups,${LDAP_SUFFIX}
+ ]/memberUid & user/uid" manage by * read
+
+# Enable syncprov on data DB
+dn: olcOverlay=syncprov,olcDatabase={2}mdb,cn=config
+objectClass: olcOverlayConfig
+objectClass: olcSyncProvConfig
+olcOverlay: syncprov

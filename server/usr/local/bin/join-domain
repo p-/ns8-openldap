@@ -1,0 +1,86 @@
+#!/bin/ash
+
+#
+# Copyright (C) 2022 Nethesis S.r.l.
+# http://www.nethesis.it - nethserver@nethesis.it
+#
+# This script is part of NethServer.
+#
+# NethServer is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License,
+# or any later version.
+#
+# NethServer is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NethServer.  If not, see COPYING.
+#
+
+# shellcheck shell=dash disable=SC3001
+
+set -e # exit on error
+
+joinurls=${1:?missing joinurls argument}
+
+if ldapwhoami >/dev/null 2>&1 ; then
+    echo "[ERROR] slapd must be stopped before running $0" 1>&2
+    exit 1
+fi
+
+# Read rootpw from the config DB itself
+export tmpl_rootpass
+ldapsearch -LLL -x -D "uid=${LDAP_ADMUSER:?},ou=People,${LDAP_SUFFIX}" -w "${LDAP_ADMPASS:?}" -H "${joinurls}" \
+    -b 'olcDatabase={0}config,cn=config' -s base -T . -tt olcRootPW >/dev/null
+tmpl_rootpass=$(cat ldapsearch-olcRootPW-*)
+rm -f ldapsearch-olcRootPW-*
+
+# Get the servers count and join endpoint information
+# shellcheck disable=SC3001
+read -r servers LDAP_JOINID LDAP_JOINURL < <(
+    ldapsearch -LLL -x -D cn=config -w "${tmpl_rootpass}" -H "${joinurls}" \
+        -b cn=config -s base olcServerID | awk -e '
+/^olcServerID:/ {
+    servers++
+    if(!sid) {
+        sid = $2
+    }
+    if(!surl) {
+        surl = $3
+    }
+}
+
+END {
+    print servers " " sid " " surl
+}
+')
+
+if [ "${servers}" -eq 0 ]; then
+    echo "[ERROR] no servers found" 1>&2
+    exit 1
+
+elif [ "${servers}" -eq 1 ]; then # join-first
+    echo "[NOTICE] Enable multi-provider and create a two-servers domain"
+    export LDAP_JOINID
+    export LDAP_JOINURL
+    export LDAP_RIDX=$(( LDAP_JOINID * 2 ))
+    export LDAP_RIDY=$(( LDAP_RIDX + 1 ))
+
+    mkdir conf.d # Fail if already configured!
+    ldapmodify -x -D cn=config -w "${tmpl_rootpass}" -H "${joinurls}" < <(envsubst <"${TEMPLATES_DIR}/join-first.ldif" | tee join-first.ldif)
+
+else # join-other
+    echo "[NOTICE] Join the existing domain of $servers servers"
+    mkdir conf.d # Fail if already configured!
+    ldapmodify -x -D cn=config -w "${tmpl_rootpass}" -H "${joinurls}" < <(envsubst <"${TEMPLATES_DIR}/join-other.ldif" | tee join-other.ldif)
+
+fi
+
+# Copy the configuration database 
+ldapsearch -LLL -x -D cn=config -w "${tmpl_rootpass}" -H "${joinurls}" -b cn=config '*' | slapadd -n 0 -F conf.d
+
+# Ensure the configuration is correct
+slaptest -u -v -F conf.d

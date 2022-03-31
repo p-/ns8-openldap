@@ -1,7 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env python3
 
 #
-# Copyright (C) 2022 Nethesis S.r.l.
+# Copyright (C) 2021 Nethesis S.r.l.
 # http://www.nethesis.it - nethserver@nethesis.it
 #
 # This script is part of NethServer.
@@ -20,6 +20,22 @@
 # along with NethServer.  If not, see COPYING.
 #
 
-# If the control reaches this step, the service can be enabled and started
+import agent
+import agent.tasks
+import os
+import sys
+import json
+from agent.ldapproxy import Ldapproxy
 
-systemctl --user enable --now openldap.service
+agent_id = os.environ['AGENT_ID']
+domain = os.environ['LDAP_DOMAIN']
+
+# Remove the account provider discovery information
+rdb = agent.redis_connect(privileged=True)
+trx = rdb.pipeline()
+trx.delete(agent_id + '/srv/tcp/ldap')
+trx.publish(agent_id + '/event/account-provider-changed', json.dumps({
+    'domain': domain,
+    'key': agent_id + '/srv/tcp/ldap',
+}))
+trx.execute()

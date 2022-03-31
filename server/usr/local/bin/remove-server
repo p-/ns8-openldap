@@ -1,7 +1,7 @@
-#!/bin/bash
+#!/bin/ash
 
 #
-# Copyright (C) 2021 Nethesis S.r.l.
+# Copyright (C) 2022 Nethesis S.r.l.
 # http://www.nethesis.it - nethserver@nethesis.it
 #
 # This script is part of NethServer.
@@ -20,12 +20,20 @@
 # along with NethServer.  If not, see COPYING.
 #
 
-exec 1>&2
-set -e
+# shellcheck shell=dash disable=SC3001
 
-export FIRST_DOMAIN_COMPONENT=${DOMAIN/.*/}
+set -e # exit on error
 
-mkdir -p ~/ldifs
+serverid=${1:?missing server ID number argument}
 
-envsubst >~/ldifs/20_config.ldif <${AGENT_INSTALL_DIR}/config.ldif.template
-envsubst >~/ldifs/30_dit.ldif <${AGENT_INSTALL_DIR}/dit.ldif.template
+if [ "${serverid}" = "${LDAP_SERVERID}" ]; then
+    echo "[ERROR] Cannot remove the local running server itself"
+    exit 1
+fi
+
+# Update syncrepl configuration on local remote server:
+ldapsearch -Q -LLL -o ldif_wrap=no -b cn=config \
+    '(|(objectClass=olcDatabaseConfig)(objectClass=olcGlobal))' olcSyncrepl olcServerID | \
+    awk -v "targetid=${serverid}" -f "${FILTERS_DIR}/update-syncrepl.awk" | \
+    tee "remove-server-${serverid}.ldif" | \
+    ldapmodify -Q -c

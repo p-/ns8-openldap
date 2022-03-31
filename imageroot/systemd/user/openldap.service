@@ -3,11 +3,6 @@ Description=OpenLDAP directory server
 
 [Service]
 Environment=PODMAN_SYSTEMD_UNIT=%n
-Environment=LDAP_ADMIN_USERNAME=admin
-Environment=LDAP_ADMIN_PASSWORD=adminpassword
-Environment=LDAP_ALLOW_ANON_BINDING=yes
-Environment=LDAP_PORT_NUMBER=10389
-Environment=LDAP_EXTRA_SCHEMAS=cosine,inetorgperson,nis
 EnvironmentFile=%S/state/environment
 Restart=always
 TimeoutStopSec=70
@@ -18,14 +13,11 @@ ExecStart=/usr/bin/podman run \
     --conmon-pidfile=%t/openldap.pid \
     --cidfile=%t/openldap.ctr-id \
     --cgroups=no-conmon \
-    --log-opt=tag=%u \
     --replace --name=%N \
-    --volume=%h/ldifs:/ldifs:Z \
-    --volume=openldap-data:/bitnami/openldap:Z \
-    --publish=127.0.0.1:${TCP_PORT}:10389 \
-    --publish=${IP_ADDRESS}:${TCP_PORT}:10389 \
-    ${OPENLDAP_IMAGE}
-ExecStartPost=/usr/bin/bash -c "while ! exec 3<>/dev/tcp/127.0.0.1/${TCP_PORT}; do sleep 1 ; done"
+    --volume=data:/var/lib/openldap:Z \
+    --volume=/dev/log:/dev/log \
+    --network=host \
+    ${OPENLDAP_SERVER_IMAGE}
 ExecStop=/usr/bin/podman stop --ignore --cidfile %t/openldap.ctr-id -t 10
 ExecStopPost=/usr/bin/podman rm --ignore -f --cidfile %t/openldap.ctr-id
 PIDFile=%t/openldap.pid
