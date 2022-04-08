@@ -1,0 +1,2 @@
+admuser = 'admin'
+admpass = '****'
