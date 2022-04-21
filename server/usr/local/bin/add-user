@@ -1,0 +1,112 @@
+#!/bin/ash
+
+#
+# Copyright (C) 2022 Nethesis S.r.l.
+# http://www.nethesis.it - nethserver@nethesis.it
+#
+# This script is part of NethServer.
+#
+# NethServer is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License,
+# or any later version.
+#
+# NethServer is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NethServer.  If not, see COPYING.
+#
+
+# shellcheck shell=dash disable=SC3001,SC3003,SC3028
+
+usage_error()
+{
+    exec 1>&2
+    [ -n "$1" ] && printf "Error: %s\n" "$1"
+    printf "Usage: %s [OPTIONS] USER\n" "$0"
+    printf "    USER                    Add/Create a new USER account\n"
+    printf "    OPTIONS\n"
+    printf "      -g group1,group2,...  Comma-separated list of groups for initial membership \n"
+    printf "      -f full_name          The full user name\n"
+    printf "      -p password           Initial password; \"-\" reads from standard input\n"
+    printf "      -G numgid             Set the primary group number\n"
+    printf "      -U numuid             Set the numeric user identifier\n"
+    exit 2
+}
+
+ngid=1001
+# XXX default nuid? e.g. max uidNumber + 1
+nuid=$(( 1003 + RANDOM % 8996 ))
+
+while getopts "g:f:p:G:U:h" optname ; do
+    case ${optname} in
+        g)  gflag=1 ; groups="${OPTARG}" ;;
+        G)  ngid="${OPTARG}" ;;
+        U)  nuid="${OPTARG}" ;;
+        f)  fflag=1 ; full_name="${OPTARG}" ;;
+        p)  pflag=1 ; password="${OPTARG}" ;;
+        h)  usage_error ;;
+        *)  usage_error ;;
+    esac
+done
+shift $((OPTIND - 1))
+user=${1}
+if [ -z "${user}" ]; then
+    usage_error "Missing USER argument"
+fi
+
+if [ "${pflag}" = 1 ]; then
+    if [ "${password}" = '-' ]; then
+        echo -n "Enter password: "
+        read -r password # Read password from stdin
+        echo
+    elif [ "${password}" = '' ]; then
+        password=$(dd if=/dev/urandom of=/dev/stdout bs=32 count=1 | base64 -w 0)
+    fi
+fi
+
+if [ "${fflag}" = 1 ]; then
+    ldif_full_name=$(echo -n "${full_name}" | base64 -w 0)
+fi
+
+(
+    # Add the new user entry
+    printf 'dn: uid=%s,ou=People,%s\n' "${user}" "${LDAP_SUFFIX:?}"
+    printf 'changetype: add\n'
+    printf 'objectClass: posixAccount\n'
+    printf 'objectClass: inetOrgPerson\n'
+    printf 'uid: %s\n' "${user}"
+    printf 'uidNumber: %d\n' "${nuid}"
+    printf 'gidNumber: %d\n' "${ngid}"
+    printf 'homeDirectory: /home/%s\n' "${user}"
+    if [ -n "${ldif_full_name}" ]; then
+        printf 'cn:: %s\n' "${ldif_full_name}"
+        printf 'sn:: %s\n' "${ldif_full_name}"
+    else
+        printf 'cn: %s\n' "${user}"
+        printf 'sn: %s\n' "${user}"
+    fi
+
+    # Add group membership attributes to existing groups
+    if [ "${gflag}" = 1 ] && [ -n "${groups}" ]; then
+        echo "${groups}" | tr , $'\n' | LC_ALL=C sort | while read -r group ; do
+            [ -z "${group}" ] && continue
+            printf '\ndn: cn=%s,ou=Groups,%s\n' "${group}" "${LDAP_SUFFIX:?}"
+            printf 'changetype: modify\n'
+            printf 'add: memberUid\n'
+            printf 'memberUid: %s\n' "${user}"
+        done
+    fi
+) | ldapmodify -Q
+
+exit_code=$?
+
+if [ "${pflag}" = 1 ]; then
+    echo -n "${password}" | ldappasswd -Q -T /dev/stdin "uid=${user},ou=People,${LDAP_SUFFIX:?}"
+    exit_code=$((exit_code + $?))
+fi
+
+exit "${exit_code}"

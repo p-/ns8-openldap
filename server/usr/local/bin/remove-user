@@ -1,0 +1,64 @@
+#!/bin/ash
+
+#
+# Copyright (C) 2022 Nethesis S.r.l.
+# http://www.nethesis.it - nethserver@nethesis.it
+#
+# This script is part of NethServer.
+#
+# NethServer is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License,
+# or any later version.
+#
+# NethServer is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NethServer.  If not, see COPYING.
+#
+
+# shellcheck shell=dash disable=SC3001,SC3003,SC3028
+
+usage_error()
+{
+    exec 1>&2
+    [ -n "$1" ] && printf "Error: %s\n" "$1"
+    printf "Usage: %s USER\n" "$0"
+    printf "    USER                    Remove the existing USER account\n"
+    exit 2
+}
+
+while getopts "h" optname ; do
+    case ${optname} in
+        h)  usage_error ;;
+        *)  usage_error ;;
+    esac
+done
+shift $((OPTIND - 1))
+user="$1"
+if [ -z "${user}" ]; then
+    usage_error "Missing USER argument"
+fi
+
+
+(
+    # Delete the user entry
+    printf 'dn: uid=%s,ou=People,%s\n' "${user}" "${LDAP_SUFFIX:?}"
+    printf 'changetype: delete\n'
+
+    # Delete user group membership attributes
+    ldapsearch -Q -LLL "(memberUid=${user})" dn | awk -v "user=${user}" -e '
+    /^dn: / {
+        print ""
+        print $0
+        print "changetype: modify"
+        print "delete: memberUid"
+        print "memberUid:" user
+    }'
+
+) | ldapmodify -Q -c
+
+exit $?

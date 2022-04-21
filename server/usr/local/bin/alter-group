@@ -1,0 +1,75 @@
+#!/bin/ash
+
+#
+# Copyright (C) 2022 Nethesis S.r.l.
+# http://www.nethesis.it - nethserver@nethesis.it
+#
+# This script is part of NethServer.
+#
+# NethServer is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License,
+# or any later version.
+#
+# NethServer is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NethServer.  If not, see COPYING.
+#
+
+# shellcheck shell=dash disable=SC3001,SC3003,SC3028
+
+usage_error()
+{
+    exec 1>&2
+    [ -n "$1" ] && printf "Error: %s\n" "$1"
+    printf "Usage: %s [OPTIONS] GROUP\n" "$0"
+    printf "    GROUP                    Add/Create a new GROUP of users\n"
+    printf "    OPTIONS\n"
+    printf "      -u user1,user2,...    Comma-separated list of initial group members\n"
+    printf "      -d description        The group description\n"
+    exit 2
+}
+
+while getopts "u:d:h" optname ; do
+    case ${optname} in
+        u)  uflag=1 ; users="${OPTARG}" ;;
+        d)  dflag=1 ; description="${OPTARG}" ;;
+        h)  usage_error ;;
+        *)  usage_error ;;
+    esac
+done
+shift $((OPTIND - 1))
+group="$1"
+if [ -z "${group}" ]; then
+    usage_error "Missing GROUP argument"
+fi
+
+(
+    printf 'dn: cn=%s,ou=Groups,%s\n' "${group}" "${LDAP_SUFFIX:?}"
+    printf 'changetype: modify\n'
+
+    # Set description
+    if [ "${dflag}" = 1 ]; then
+        ldif_description=$(echo -n "${description}" | base64 -w 0)
+        printf 'replace: description\n'
+        printf 'description:: %s\n' "${ldif_description}"
+        printf -- '-\n'
+    fi
+
+    # Replace group members
+    if [ "${uflag}" = 1 ]; then
+        printf 'replace: memberUid\n'
+        echo "${users}" | tr , $'\n' | LC_ALL=C sort | while read -r user ; do
+            [ -z "${user}" ] && continue
+            printf 'memberUid: %s\n' "${user}"
+        done
+        printf -- '-\n'
+    fi
+
+) | tee -a /dev/stderr | ldapmodify -Q
+
+exit $?

@@ -50,6 +50,7 @@ dn: olcDatabase=frontend,cn=config
 objectClass: olcDatabaseConfig
 objectClass: olcFrontendConfig
 olcDatabase: frontend
+olcPasswordHash: {SSHA512}
 
 #
 # Config settings
@@ -92,6 +93,9 @@ olcRootDN: cn=mdbsync,${LDAP_SUFFIX}
 olcRootPW: ${tmpl_rootpass}
 olcDbDirectory:	/var/lib/openldap/openldap-data
 olcDbIndex: objectClass eq
+olcDbIndex: uid pres,eq
+olcDbIndex: cn pres,eq,sub,subinitial
+olcDbIndex: memberUid pres,eq
 olcAccess: to attrs=userPassword by dn.base="
  gidNumber=101+uidNumber=100,cn=peercred,cn=external,cn=aut
  h" manage by set="[cn=domain admins,ou=Groups,${LDAP_SUFFIX}
