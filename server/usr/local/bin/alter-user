@@ -50,7 +50,7 @@ if [ -z "${user}" ]; then
     usage_error "Missing USER argument"
 fi
 
-exit_code=0
+errors=0
 
 if [ "${pflag}" = 1 ]; then
     if [ "${password}" = '-' ]; then
@@ -61,7 +61,10 @@ if [ "${pflag}" = 1 ]; then
         password=$(dd if=/dev/urandom of=/dev/stdout bs=32 count=1 | base64 -w 0)
     fi
     echo -n "${password}" | ldappasswd -Q -T /dev/stdin "uid=${user},ou=People,${LDAP_SUFFIX:?}"
-    exit_code=$((exit_code + $?))
+    if [ $? != 0 ]; then
+        errors=$((errors + 1))
+        echo "[ERROR] Password change failed for ${user}" 1>&2
+    fi
 fi
 
 (
@@ -100,4 +103,11 @@ fi
     fi
 ) | ldapmodify -Q
 
-exit $?
+if [ $? != 0 ]; then
+    errors=$((errors + 1))
+    echo "[ERROR] Alter user ${user} failed" 1>&2
+fi
+
+if [ "${errors}" != 0 ]; then
+    exit 1
+fi
