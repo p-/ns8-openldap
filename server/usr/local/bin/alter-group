@@ -54,9 +54,13 @@ fi
 
     # Set description
     if [ "${dflag}" = 1 ]; then
-        ldif_description=$(echo -n "${description}" | base64 -w 0)
-        printf 'replace: description\n'
-        printf 'description:: %s\n' "${ldif_description}"
+        if [ -n "${description}" ]; then
+            ldif_description=$(echo -n "${description}" | base64 -w 0)
+            printf 'replace: description\n'
+            printf 'description:: %s\n' "${ldif_description}"
+        else
+            printf 'delete: description\n'
+        fi
         printf -- '-\n'
     fi
 

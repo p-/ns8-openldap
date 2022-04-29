@@ -42,7 +42,7 @@ uidNumber: 1001
 gidNumber: 1001
 uid: ${LDAP_ADMUSER}
 userPassword: ${tmpl_admpwh}
-gecos: ${LDAP_ADMUSER}
+displayName: Builtin administrator user
 cn: ${LDAP_ADMUSER}
 sn: ${LDAP_ADMUSER}
 objectClass: posixAccount

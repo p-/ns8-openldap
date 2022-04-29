@@ -53,7 +53,7 @@ if [ -z "${group}" ]; then
     usage_error "Missing GROUP argument"
 fi
 
-if [ "${dflag}" = 1 ]; then
+if [ "${dflag}" = 1 ] && [ -n "${description}" ]; then
     ldif_description=$(echo -n "${description}" | base64 -w 0)
 fi
 
@@ -64,10 +64,8 @@ fi
     printf 'objectClass: posixGroup\n'
     printf 'cn: %s\n' "${group}"
     printf 'gidNumber: %d\n' "${ngid}"
-    if [ -n "${description}" ]; then
+    if [ -n "${ldif_description}" ]; then
         printf 'description:: %s\n' "${ldif_description}"
-    else
-        printf 'description: %s\n' "${group}"
     fi
 
     # Add initial members to the group

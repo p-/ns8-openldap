@@ -7,7 +7,7 @@
     "examples": [
         {
             "user": "alice",
-            "full_name": "Alice Jordan",
+            "display_name": "Alice Jordan",
             "password": "secret",
             "groups": [
                 "developers","managers"
@@ -24,17 +24,16 @@
             "type": "string",
             "minLength": 1
         },
-        "full_name": {
+        "display_name": {
             "title": "Full name",
             "type": "string",
-            "minLength": 1,
-            "maxLength": 32
+            "maxLength": 256
         },
         "password": {
             "title": "New password",
             "description": "If empty, a random password is set",
             "type": "string",
-            "minLength": 0
+            "maxLength": 256
         },
         "groups": {
             "title": "Group membership",

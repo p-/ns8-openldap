@@ -20,7 +20,7 @@
 # along with NethServer.  If not, see COPYING.
 #
 
-# shellcheck shell=dash disable=SC3001,SC3003,SC3028
+# shellcheck shell=dash disable=SC3001,SC3003,SC3028,SC2181
 
 usage_error()
 {
@@ -30,15 +30,15 @@ usage_error()
     printf "    USER                    Add/Create a new USER account\n"
     printf "    OPTIONS\n"
     printf "      -g group1,group2,...  Set the user as member of the comma-separated list of groups\n"
-    printf "      -f full_name          Set the full user name\n"
+    printf "      -d display_name          Set the user display name\n"
     printf "      -p password           Initial password; \"-\" reads from standard input\n"
     exit 2
 }
 
-while getopts "g:f:p:h" optname ; do
+while getopts "g:d:p:h" optname ; do
     case ${optname} in
         g)  gflag=1 ; groups="${OPTARG}" ;;
-        f)  fflag=1 ; full_name="${OPTARG}" ;;
+        d)  dflag=1 ; display_name="${OPTARG}" ;;
         p)  pflag=1 ; password="${OPTARG}" ;;
         h)  usage_error ;;
         *)  usage_error ;;
@@ -68,16 +68,33 @@ if [ "${pflag}" = 1 ]; then
 fi
 
 (
-    if [ "${fflag}" = 1 ]; then
+    if [ "${dflag}" = 1 ]; then
         # Modify the new user entry
         printf 'dn: uid=%s,ou=People,%s\n' "${user}" "${LDAP_SUFFIX:?}"
         printf 'changetype: modify\n'
-        ldif_full_name=$(echo -n "${full_name}" | base64 -w 0)
-        printf 'replace: cn\n'
-        printf 'cn:: %s\n' "${ldif_full_name}"
-        printf -- '-\n'
-        printf 'replace: sn\n'
-        printf 'sn:: %s\n' "${ldif_full_name}"
+        if [ -n "${display_name}" ]; then
+            ldif_display_name=$(echo -n "${display_name}" | base64 -w 0)
+            printf 'replace: displayName\n'
+            printf 'displayName:: %s\n' "${ldif_display_name}"
+
+            ldif_sn=$(echo -n "${display_name}" | awk '{$1=""; print $0}' | base64 -w 0)
+            printf -- '-\n'
+            printf 'replace: sn\n'
+            printf 'sn:: %s\n' "${ldif_sn}"
+
+            ldif_cn=$(echo -n "${display_name}" | awk '{print $1}' | base64 -w 0)
+            printf -- '-\n'
+            printf 'replace: cn\n'
+            printf 'cn:: %s\n' "${ldif_cn}"
+        else
+            printf 'delete: displayName\n'
+            printf -- '-\n'
+            printf 'replace: sn\n'
+            printf 'sn: %s\n' "${user}"
+            printf -- '-\n'
+            printf 'replace: cn\n'
+            printf 'cn: %s\n' "${user}"
+        fi
     fi
 
     # Change group membership attributes on existing groups

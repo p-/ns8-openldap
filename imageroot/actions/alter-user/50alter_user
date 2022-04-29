@@ -36,8 +36,8 @@ if 'password' in request:
 if 'groups' in request:
     alteruser_cmd += ['-g', ','.join(request['groups'])]
 
-if 'full_name' in request:
-    alteruser_cmd += ['-f', request['full_name']]
+if 'display_name' in request:
+    alteruser_cmd += ['-d', request['display_name']]
 
 alteruser_cmd.append(user)
 

@@ -25,8 +25,9 @@
             "minLength": 1
         },
         "description": {
-            "title": "Extended group description",
-            "type":"string"
+            "title": "Group description",
+            "type":"string",
+            "maxLength": 256
         },
         "users": {
             "title": "Group members",

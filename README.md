@@ -69,7 +69,7 @@ Change the group description
 
 Create user `first.user` as member of `mygroup1`
 
-    api-cli run module/openldap1/add-user --data '{"user":"first.user","full_name":"First User","password":"Nethesis,1234","groups":["mygroup1"]}'
+    api-cli run module/openldap1/add-user --data '{"user":"first.user","display_name":"First User","password":"Nethesis,1234","groups":["mygroup1"]}'
 
 Change First User's password
 

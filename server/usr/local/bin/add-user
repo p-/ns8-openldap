@@ -30,7 +30,7 @@ usage_error()
     printf "    USER                    Add/Create a new USER account\n"
     printf "    OPTIONS\n"
     printf "      -g group1,group2,...  Comma-separated list of groups for initial membership \n"
-    printf "      -f full_name          The full user name\n"
+    printf "      -d display_name       The user display name\n"
     printf "      -p password           Initial password; \"-\" reads from standard input\n"
     printf "      -G numgid             Set the primary group number\n"
     printf "      -U numuid             Set the numeric user identifier\n"
@@ -41,12 +41,12 @@ ngid=1001
 # XXX default nuid? e.g. max uidNumber + 1
 nuid=$(( 1003 + RANDOM % 8996 ))
 
-while getopts "g:f:p:G:U:h" optname ; do
+while getopts "g:d:p:G:U:h" optname ; do
     case ${optname} in
         g)  gflag=1 ; groups="${OPTARG}" ;;
         G)  ngid="${OPTARG}" ;;
         U)  nuid="${OPTARG}" ;;
-        f)  fflag=1 ; full_name="${OPTARG}" ;;
+        d)  dflag=1 ; display_name="${OPTARG}" ;;
         p)  pflag=1 ; password="${OPTARG}" ;;
         h)  usage_error ;;
         *)  usage_error ;;
@@ -68,8 +68,8 @@ if [ "${pflag}" = 1 ]; then
     fi
 fi
 
-if [ "${fflag}" = 1 ]; then
-    ldif_full_name=$(echo -n "${full_name}" | base64 -w 0)
+if [ "${dflag}" = 1 ] && [ -n "${display_name}" ]; then
+    ldif_display_name=$(echo -n "${display_name}" | base64 -w 0)
 fi
 
 (
@@ -82,9 +82,12 @@ fi
     printf 'uidNumber: %d\n' "${nuid}"
     printf 'gidNumber: %d\n' "${ngid}"
     printf 'homeDirectory: /home/%s\n' "${user}"
-    if [ -n "${ldif_full_name}" ]; then
-        printf 'cn:: %s\n' "${ldif_full_name}"
-        printf 'sn:: %s\n' "${ldif_full_name}"
+    if [ -n "${ldif_display_name}" ]; then
+        ldif_cn=$(echo -n "${display_name}" | awk '{print $1}' | base64 -w 0)
+        printf 'cn:: %s\n' "${ldif_cn}"
+        ldif_sn=$(echo -n "${display_name}" | awk '{$1=""; print $0}' | base64 -w 0)
+        printf 'sn:: %s\n' "${ldif_sn}"
+        printf 'displayName:: %s\n' "${ldif_display_name}"
     else
         printf 'cn: %s\n' "${user}"
         printf 'sn: %s\n' "${user}"

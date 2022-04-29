@@ -27,18 +27,23 @@ import subprocess
 
 request = json.load(sys.stdin)
 user = request['user']
-groups = request['groups']
+groups = request.get('groups', [])
 password = request.get('password', '') # Empty string implies a random password is set
-full_name = request['full_name']
+display_name = request.get('display_name', '')
 
-adduser_cmd = [
-    'podman', 'exec', '-i', 'openldap', 'add-user',
-    '-g', ','.join(groups),
-    '-p', '-', # Read password from stdin
-]
+adduser_cmd = ['podman', 'exec', '-i', 'openldap', 'add-user']
 
-if full_name:
-    adduser_cmd += ['-f', full_name]
+if groups:
+    adduser_cmd += ['-g', ','.join(groups)]
+
+if password:
+    adduser_cmd += ['-p', '-'] # Read password from stdin
+else:
+    password=None
+    adduser_cmd += ['-p', ''] # Generate a random password
+
+if display_name:
+    adduser_cmd += ['-d', display_name]
 
 adduser_cmd.append(user)
 
