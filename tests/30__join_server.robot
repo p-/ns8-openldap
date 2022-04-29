@@ -14,8 +14,8 @@ Join domain
     ...    return_rc=True  return_stdout=True  return_stderr=True
     Should Be Equal As Integers    ${rc}  0
     ${val} =     Get server url    ${MID2}
-    Set Suite Variable    ${surl}    ${val}
-    RootDSE is correct    ${surl}
+    Set Suite Variable    ${SURL}    ${val}
+    RootDSE is correct    ${SURL}
 
 Changes are propagated to them
     [Tags]    unstable

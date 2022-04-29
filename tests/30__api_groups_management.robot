@@ -17,7 +17,7 @@ Remove test users
 Add group group1
     Run task    module/${MID1}/add-group    {"group":"group1","description":"First group","users":["u1"]}
 
-    ${out}  ${err}  ${rc} =    Execute Command    podman exec ${MID1} ldapsearch cn=group1
+    ${out}  ${err}  ${rc} =    Execute Command    podman exec ldapclient ldapsearch -LLL -H ${SURL} -x -D 'uid\=${admuser},ou=People,${DOMSUFFIX}' -w '${admpass}' -b '${DOMSUFFIX}' cn=group1
     ...    return_stderr=${TRUE}    return_rc=${TRUE}
     Should Be Equal As Integers     ${rc}    0
     Should Contain      ${out}      group1
@@ -32,14 +32,14 @@ Group already exists
 Alter group group1
     Run task    module/${MID1}/alter-group    {"group":"group1","description":"chdesc","users":["u2"]}
 
-    ${out}  ${err}  ${rc} =    Execute Command    podman exec ${MID1} ldapsearch cn=group1
+    ${out}  ${err}  ${rc} =    Execute Command    podman exec ldapclient ldapsearch -LLL -H ${SURL} -x -D 'uid\=${admuser},ou=People,${DOMSUFFIX}' -w '${admpass}' -b '${DOMSUFFIX}' cn=group1
     ...    return_stderr=${TRUE}    return_rc=${TRUE}
     Should Be Equal As Integers   ${rc}    0
     Should Contain      ${out}    group1
     Should Not Contain  ${out}    First group
     Should Not Contain  ${out}    memberUid: u1
-    Should Contain      ${out}    memberUid: u2    
-    Should Contain      ${out}    Y2hkZXNjCg\=\=    # Base64 encoding of "chdesc"
+    Should Contain      ${out}    memberUid: u2
+    Should Contain      ${out}    chdesc
 
 Alter non-existing group
     Run task    module/${MID1}/alter-group    {"group":"bad-user","description":"Does not matter","users":[]}
@@ -48,6 +48,6 @@ Alter non-existing group
 Remove group group1
     Run task    module/${MID1}/remove-group    {"group":"group1"}
 
-    ${out}  ${err}  ${rc} =    Execute Command    podman exec ${MID1} ldapsearch cn=group1
+    ${out}  ${err}  ${rc} =    Execute Command    podman exec ldapclient ldapsearch -LLL -H ${SURL} -x -D 'uid\=${admuser},ou=People,${DOMSUFFIX}' -w '${admpass}' -b '${DOMSUFFIX}' cn=group1
     ...    return_stderr=${TRUE}    return_rc=${TRUE}
-    Should Not Be Equal As Integers    ${rc}    0
+    Should Not Contain    ${out}    numEntries:

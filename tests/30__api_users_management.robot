@@ -17,13 +17,13 @@ Remove test groups
 Add user first.user
     Run task    module/${MID1}/add-user    {"user":"first.user","display_name":"First User","locked":false,"groups":["g1"]}
 
-    ${out}  ${err}  ${rc} =    Execute Command    podman exec ${MID1} ldapsearch uid=first.user
+    ${out}  ${err}  ${rc} =    Execute Command    podman exec ldapclient ldapsearch -LLL -H ${SURL} -x -D 'uid\=${admuser},ou=People,${DOMSUFFIX}' -w '${admpass}' -b '${DOMSUFFIX}' uid=first.user
     ...    return_stderr=${TRUE}    return_rc=${TRUE}
     Should Be Equal As Integers    ${rc}    0
     Should Contain    ${out}    first.user
     Should Contain    ${out}    First User
 
-    ${out}  ${err}  ${rc} =    Execute Command    podman exec ${MID1} ldapsearch cn=g1
+    ${out}  ${err}  ${rc} =    Execute Command    podman exec ldapclient ldapsearch -LLL -H ${SURL} -x -D 'uid\=${admuser},ou=People,${DOMSUFFIX}' -w '${admpass}' -b '${DOMSUFFIX}' cn=g1
     ...    return_stderr=${TRUE}    return_rc=${TRUE}
     Should Be Equal As Integers    ${rc}    0
     Should Contain    ${out}    memberUid: first.user
@@ -35,7 +35,7 @@ User already exists failure
 Alter user first.user
     Run task    module/${MID1}/alter-user    {"user":"first.user","display_name":"Changed full name","locked":true,"groups":["g2"]}
 
-    ${out}  ${err}  ${rc} =    Execute Command    podman exec ${MID1} ldapsearch uid=first.user
+    ${out}  ${err}  ${rc} =    Execute Command    podman exec ldapclient ldapsearch -LLL -H ${SURL} -x -D 'uid\=${admuser},ou=People,${DOMSUFFIX}' -w '${admpass}' -b '${DOMSUFFIX}' uid=first.user
     ...    return_stderr=${TRUE}    return_rc=${TRUE}
     Should Be Equal As Integers    ${rc}    0
     Should Contain    ${out}    first.user
@@ -43,12 +43,12 @@ Alter user first.user
     Should Contain    ${out}    Changed full name
 
 
-    ${out}  ${err}  ${rc} =    Execute Command    podman exec ${MID1} ldapsearch cn=g1
+    ${out}  ${err}  ${rc} =    Execute Command    podman exec ldapclient ldapsearch -LLL -H ${SURL} -x -D 'uid\=${admuser},ou=People,${DOMSUFFIX}' -w '${admpass}' -b '${DOMSUFFIX}' cn=g1
     ...    return_stderr=${TRUE}    return_rc=${TRUE}
     Should Be Equal As Integers    ${rc}    0
     Should Not Contain    ${out}    memberUid: first.user
 
-    ${out}  ${err}  ${rc} =    Execute Command    podman exec ${MID1} ldapsearch cn=g2
+    ${out}  ${err}  ${rc} =    Execute Command    podman exec ldapclient ldapsearch -LLL -H ${SURL} -x -D 'uid\=${admuser},ou=People,${DOMSUFFIX}' -w '${admpass}' -b '${DOMSUFFIX}' cn=g2
     ...    return_stderr=${TRUE}    return_rc=${TRUE}
     Should Be Equal As Integers    ${rc}    0
     Should Contain    ${out}    memberUid: first.user
@@ -60,6 +60,6 @@ Alter non-existing user
 Remove user first.user
     Run task    module/${MID1}/remove-user    {"user":"first.user"}
 
-    ${out}  ${err}  ${rc} =    Execute Command    podman exec ${MID1} ldapsearch uid=first.user
+    ${out}  ${err}  ${rc} =    Execute Command    podman exec ldapclient ldapsearch -LLL -H ${SURL} -x -D 'uid\=${admuser},ou=People,${DOMSUFFIX}' -w '${admpass}' -b '${DOMSUFFIX}' uid=first.user
     ...    return_stderr=${TRUE}    return_rc=${TRUE}
-    Should Not Be Equal As Integers    ${rc}    0
+    Should Not Contain    ${out}    numEntries:
