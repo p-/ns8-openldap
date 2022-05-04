@@ -87,7 +87,7 @@ fi
             printf 'replace: cn\n'
             printf 'cn:: %s\n' "${ldif_cn}"
         else
-            printf 'delete: displayName\n'
+            printf 'replace: displayName\n'
             printf -- '-\n'
             printf 'replace: sn\n'
             printf 'sn: %s\n' "${user}"

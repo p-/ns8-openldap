@@ -59,7 +59,7 @@ fi
             printf 'replace: description\n'
             printf 'description:: %s\n' "${ldif_description}"
         else
-            printf 'delete: description\n'
+            printf 'replace: description\n'
         fi
         printf -- '-\n'
     fi

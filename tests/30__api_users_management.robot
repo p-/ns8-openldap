@@ -53,6 +53,15 @@ Alter user first.user
     Should Be Equal As Integers    ${rc}    0
     Should Contain    ${out}    memberUid: first.user
 
+Remove first.user display name
+    Run task    module/${MID1}/alter-user    {"user":"first.user","display_name":""}
+
+    ${out}  ${err}  ${rc} =    Execute Command    podman exec ldapclient ldapsearch -LLL -H ${SURL} -x -D 'uid\=${admuser},ou=People,${DOMSUFFIX}' -w '${admpass}' -b '${DOMSUFFIX}' uid=first.user
+    ...    return_stderr=${TRUE}    return_rc=${TRUE}
+    Should Be Equal As Integers    ${rc}    0
+    Should Not Contain    ${out}    displayName:
+
+
 Alter non-existing user
     Run task    module/${MID1}/alter-user    {"user":"bad-user","display_name":"First User","locked":false,"groups":["g1"]}
     ...    rc_expected=1
