@@ -103,17 +103,18 @@ fi
             <(ldapsearch -LLL -Q "(&(objectClass=posixGroup)(memberUid=${user}))" cn | grep ^cn: | LC_ALL=C sort) \
             <(echo -n "${groups}" | awk -v RS=, '{ print "cn: " $0 }' | LC_ALL=C sort) \
             | awk -v "user=${user}" -v "ldap_suffix=${LDAP_SUFFIX:?}" -e '
-        function print_dn_modify_header(group) {
-            printf "\ndn: cn=%s,ou=Groups,%s\n", group, ldap_suffix
+        function print_dn_modify_header() {
+            sub(/^[-+]cn: /, "")
+            printf "\ndn: cn=%s,ou=Groups,%s\n", $0, ldap_suffix
             printf "changetype: modify\n"
         }
         /^\+cn: / {
-            print_dn_modify_header($2)
+            print_dn_modify_header()
             print "add: memberUid"
             print "memberUid: " user
         }
         /^-cn: / {
-            print_dn_modify_header($2)
+            print_dn_modify_header()
             print "delete: memberUid"
             print "memberUid: " user
         }'
