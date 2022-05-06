@@ -73,4 +73,4 @@ Create user `first.user` as member of `mygroup1`
 
 Change First User's password
 
-    api-cli run module/openldap1/alter-user --data '{"user":"usr1","password":"Neth,123"}'
+    api-cli run module/openldap1/alter-user --data '{"user":"first.user","password":"Neth,123"}'
