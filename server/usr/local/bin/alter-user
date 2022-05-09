@@ -1,0 +1,131 @@
+#!/bin/ash
+
+#
+# Copyright (C) 2022 Nethesis S.r.l.
+# http://www.nethesis.it - nethserver@nethesis.it
+#
+# This script is part of NethServer.
+#
+# NethServer is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License,
+# or any later version.
+#
+# NethServer is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NethServer.  If not, see COPYING.
+#
+
+# shellcheck shell=dash disable=SC3001,SC3003,SC3028,SC2181
+
+usage_error()
+{
+    exec 1>&2
+    [ -n "$1" ] && printf "Error: %s\n" "$1"
+    printf "Usage: %s [OPTIONS] USER\n" "$0"
+    printf "    USER                    Add/Create a new USER account\n"
+    printf "    OPTIONS\n"
+    printf "      -g group1,group2,...  Set the user as member of the comma-separated list of groups\n"
+    printf "      -d display_name          Set the user display name\n"
+    printf "      -p password           Initial password; \"-\" reads from standard input\n"
+    exit 2
+}
+
+while getopts "g:d:p:h" optname ; do
+    case ${optname} in
+        g)  gflag=1 ; groups="${OPTARG}" ;;
+        d)  dflag=1 ; display_name="${OPTARG}" ;;
+        p)  pflag=1 ; password="${OPTARG}" ;;
+        h)  usage_error ;;
+        *)  usage_error ;;
+    esac
+done
+shift $((OPTIND - 1))
+user=${1}
+if [ -z "${user}" ]; then
+    usage_error "Missing USER argument"
+fi
+
+errors=0
+
+if [ "${pflag}" = 1 ]; then
+    if [ "${password}" = '-' ]; then
+        echo -n "Enter password: "
+        read -r password # Read password from stdin
+        echo
+    elif [ "${password}" = '' ]; then
+        password=$(dd if=/dev/urandom of=/dev/stdout bs=32 count=1 | base64 -w 0)
+    fi
+    echo -n "${password}" | ldappasswd -Q -T /dev/stdin "uid=${user},ou=People,${LDAP_SUFFIX:?}"
+    if [ $? != 0 ]; then
+        errors=$((errors + 1))
+        echo "[ERROR] Password change failed for ${user}" 1>&2
+    fi
+fi
+
+(
+    if [ "${dflag}" = 1 ]; then
+        # Modify the new user entry
+        printf 'dn: uid=%s,ou=People,%s\n' "${user}" "${LDAP_SUFFIX:?}"
+        printf 'changetype: modify\n'
+        if [ -n "${display_name}" ]; then
+            ldif_display_name=$(echo -n "${display_name}" | base64 -w 0)
+            printf 'replace: displayName\n'
+            printf 'displayName:: %s\n' "${ldif_display_name}"
+
+            ldif_sn=$(echo -n "${display_name}" | awk '{$1=""; print $0}' | base64 -w 0)
+            printf -- '-\n'
+            printf 'replace: sn\n'
+            printf 'sn:: %s\n' "${ldif_sn}"
+
+            ldif_cn=$(echo -n "${display_name}" | awk '{print $1}' | base64 -w 0)
+            printf -- '-\n'
+            printf 'replace: cn\n'
+            printf 'cn:: %s\n' "${ldif_cn}"
+        else
+            printf 'replace: displayName\n'
+            printf -- '-\n'
+            printf 'replace: sn\n'
+            printf 'sn: %s\n' "${user}"
+            printf -- '-\n'
+            printf 'replace: cn\n'
+            printf 'cn: %s\n' "${user}"
+        fi
+    fi
+
+    # Change group membership attributes on existing groups
+    if [ "${gflag}" = 1 ]; then
+        diff -U 0 \
+            <(ldapsearch -LLL -Q "(&(objectClass=posixGroup)(memberUid=${user}))" cn | grep ^cn: | LC_ALL=C sort) \
+            <(echo -n "${groups}" | awk -v RS=, '{ print "cn: " $0 }' | LC_ALL=C sort) \
+            | awk -v "user=${user}" -v "ldap_suffix=${LDAP_SUFFIX:?}" -e '
+        function print_dn_modify_header() {
+            sub(/^[-+]cn: /, "")
+            printf "\ndn: cn=%s,ou=Groups,%s\n", $0, ldap_suffix
+            printf "changetype: modify\n"
+        }
+        /^\+cn: / {
+            print_dn_modify_header()
+            print "add: memberUid"
+            print "memberUid: " user
+        }
+        /^-cn: / {
+            print_dn_modify_header()
+            print "delete: memberUid"
+            print "memberUid: " user
+        }'
+    fi
+) | ldapmodify -Q
+
+if [ $? != 0 ]; then
+    errors=$((errors + 1))
+    echo "[ERROR] Alter user ${user} failed" 1>&2
+fi
+
+if [ "${errors}" != 0 ]; then
+    exit 1
+fi

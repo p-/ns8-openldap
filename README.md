@@ -56,3 +56,21 @@ are sent to stderr, which is forwarded to Systemd journal. Set
     systemctl --user restart openldap
 
 See also the server README.
+
+## Users and group management APIs
+
+Create group `mygroup1`
+
+    api-cli run module/openldap1/add-group --data '{"group":"mygroup1","description":"My group","users":[]}'
+
+Change the group description
+
+    api-cli run module/openldap1/alter-group --data '{"group":"mygroup1","description":"My Group 1"}'
+
+Create user `first.user` as member of `mygroup1`
+
+    api-cli run module/openldap1/add-user --data '{"user":"first.user","display_name":"First User","password":"Nethesis,1234","groups":["mygroup1"]}'
+
+Change First User's password
+
+    api-cli run module/openldap1/alter-user --data '{"user":"first.user","password":"Neth,123"}'

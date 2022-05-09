@@ -1,11 +1,15 @@
 *** Settings ***
 Library     SSHLibrary
-Variables  vars.py
+Resource    api.resource
+Variables   vars.py
 
 *** Variables ***
 ${IMAGE_URL}    http://ghrc.io/nethserver/openldap:latest
 ${DOMSUFFIX}    dc\=x,dc\=y
-
+${MID1}         unknown00
+${DOMSUFFIX}    dc\=x,dc\=y
+${DOMAIN}       dom.test
+${SURL}         ldap://
 
 *** Keywords ***
 Create a module instance
@@ -33,8 +37,8 @@ Get ldapservice credentials
     [Return]    ${srv.bind_dn}    ${srv.bind_password}
 
 RootDSE is correct
-    [Arguments]    ${surl}
-    ${out}  ${err}  ${rc} =    Execute Command    podman exec -i ldapclient ldapsearch -LLL -x -D '' -w '' -H ${surl} -b '' -s base namingContexts
+    [Arguments]    ${SURL}
+    ${out}  ${err}  ${rc} =    Execute Command    podman exec -i ldapclient ldapsearch -LLL -x -D '' -w '' -H ${SURL} -b '' -s base namingContexts
     ...    return_stderr=${TRUE}    return_rc=${TRUE}
     Should Contain    ${out}    namingContexts: ${DOMSUFFIX}    ignore_case=${TRUE}
 

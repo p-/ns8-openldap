@@ -4,6 +4,8 @@ This container runs an OpenLDAP server instance. It can be configured as a
 standalone server, or joined to other instances with the same domain
 suffix and multi-provider synchronization.
 
+The LDAP database schema should be compliant with RFC2307.
+
 ## Environment variables
 
 * `LDAP_ADMUSER`, default `admin`. Name of the initial member of `domain admins`

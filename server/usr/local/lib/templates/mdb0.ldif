@@ -24,15 +24,17 @@ objectClass: simpleSecurityObject
 cn: ${LDAP_SVCUSER}
 userPassword: ${LDAP_SVCPASS}
 
-dn: cn=locals,ou=Groups,${LDAP_SUFFIX}
+dn: cn=locals,${LDAP_SUFFIX}
 gidNumber: 1001
 cn: locals
+description: Default users primary group
 objectClass: posixGroup
 
 dn: cn=domain admins,ou=Groups,${LDAP_SUFFIX}
 gidNumber: 1002
 objectClass: posixGroup
 cn: domain admins
+description: Domain Administrators
 memberUid: ${LDAP_ADMUSER}
 
 dn: uid=${LDAP_ADMUSER},ou=People,${LDAP_SUFFIX}
@@ -40,7 +42,7 @@ uidNumber: 1001
 gidNumber: 1001
 uid: ${LDAP_ADMUSER}
 userPassword: ${tmpl_admpwh}
-gecos: ${LDAP_ADMUSER}
+displayName: Builtin administrator user
 cn: ${LDAP_ADMUSER}
 sn: ${LDAP_ADMUSER}
 objectClass: posixAccount
