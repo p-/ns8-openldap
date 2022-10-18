@@ -1,0 +1,21 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2022 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+exec 1>&2
+set -e
+
+echo "Resume OpenLDAP server state:"
+podman run \
+    --env=LDAP_\* \
+    --name=resume_state --rm \
+    --volume=data:/var/lib/openldap:Z \
+    --volume=/dev/log:/dev/log \
+    --network=host \
+    "${OPENLDAP_SERVER_IMAGE}" /usr/local/bin/load-dumpfiles
+
+# Enable and start the LDAP server
+systemctl --user enable --now openldap.service

@@ -1,0 +1,12 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2022 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+echo "Dumping state to LDIF files:"
+podman exec -i openldap sh -s <<'EOF'
+slapcat -b "cn=config" -F conf.d -l dump-config.ldif
+slapcat -b "${LDAP_SUFFIX}" -F conf.d -l dump-mdb0.ldif
+EOF
