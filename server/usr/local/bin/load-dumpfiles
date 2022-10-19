@@ -32,6 +32,8 @@ mkdir -m 0700 -v openldap-data
 
 echo "Loading config dump..."
 cat dump-config.ldif | slapadd -v -F conf.d -b cn=config
+
+# Reset the server ID attribute and remove any syncrepl configuration
 slapmodify -v -F conf.d -b cn=config <<EOF
 dn: cn=config
 changetype: modify
