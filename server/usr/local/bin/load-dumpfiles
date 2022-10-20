@@ -10,8 +10,8 @@
 set -e # exit on error
 
 # Safety check: slapd must be stopped
-if [ -f run/slapd.pid ] && grep -q slapd "/proc/$(cat run/slapd.pid)/cmdline"; then
-    echo "Could not load dump files whilst slapd is running!" 1>&2
+if pgrep -x slapd >/dev/null 2>&1; then
+    echo "[ERROR] slapd must be stopped before running $0" 1>&2
     exit 1
 fi
 
@@ -31,7 +31,7 @@ mkdir -m 0750 -v conf.d
 mkdir -m 0700 -v openldap-data
 
 echo "Loading config dump..."
-cat dump-config.ldif | slapadd -v -F conf.d -b cn=config
+slapadd -v -F conf.d -b cn=config -l dump-config.ldif
 
 # Reset the server ID attribute and remove any syncrepl configuration
 slapmodify -v -F conf.d -b cn=config <<EOF

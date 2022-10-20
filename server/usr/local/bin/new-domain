@@ -23,6 +23,13 @@
 # shellcheck shell=dash disable=SC3001
 
 set -e # exit on error
+
+# Safety check: slapd must be stopped
+if pgrep -x slapd >/dev/null 2>&1; then
+    echo "[ERROR] slapd must be stopped before running $0" 1>&2
+    exit 1
+fi
+
 echo "Generating password hash for ${LDAP_ADMUSER:?}"
 tmpl_admpwh=$(slappasswd -s "${LDAP_ADMPASS:?}" -o module-load=pw-sha2.so -h '{SSHA512}')
 

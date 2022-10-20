@@ -24,7 +24,8 @@
 
 set -e # exit on error
 
-if ldapwhoami >/dev/null 2>&1 ; then
+# Safety check: slapd must be stopped
+if pgrep -x slapd >/dev/null 2>&1; then
     echo "[ERROR] slapd must be stopped before running $0" 1>&2
     exit 1
 fi
