@@ -11,9 +11,9 @@ set -e
 echo "Resume OpenLDAP server state:"
 podman run \
     --env=LDAP_\* \
-    --name=resume_state --rm \
+    --log-driver=none \
+    --replace --name=resume_state --rm \
     --volume=data:/var/lib/openldap:Z \
-    --volume=/dev/log:/dev/log \
     --network=host \
     "${OPENLDAP_SERVER_IMAGE}" /usr/local/bin/load-dumpfiles
 

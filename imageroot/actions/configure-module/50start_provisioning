@@ -39,6 +39,7 @@ provision_type = request['provision']
 
 
 podman_cmd = ["podman", "run", "--rm",
+    "--replace", "--name=start_provisioning",
     "--log-driver=none",
     "--network=host",
     "--env=LDAP_*",
