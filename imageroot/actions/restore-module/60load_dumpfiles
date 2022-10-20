@@ -12,10 +12,8 @@ echo "Resume OpenLDAP server state:"
 podman run \
     --env=LDAP_\* \
     --log-driver=none \
-    --replace --name=resume_state --rm \
+    --replace --name=load_dumpfiles --rm \
     --volume=data:/var/lib/openldap:Z \
     --network=host \
     "${OPENLDAP_SERVER_IMAGE}" /usr/local/bin/load-dumpfiles
 
-# Enable and start the LDAP server
-systemctl --user enable --now openldap.service
