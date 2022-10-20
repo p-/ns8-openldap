@@ -80,7 +80,7 @@ else # join-other
 fi
 
 # Copy the configuration database 
-ldapsearch -LLL -x -D cn=config -w "${tmpl_rootpass}" -H "${joinurls}" -b cn=config '*' | slapadd -n 0 -F conf.d
+ldapsearch -LLL -x -D cn=config -w "${tmpl_rootpass}" -H "${joinurls}" -b cn=config '*' | slapadd -v -n 0 -F conf.d
 
 # Ensure the configuration is correct
 slaptest -u -v -F conf.d

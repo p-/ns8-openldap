@@ -33,6 +33,6 @@ export tmpl_admpwh tmpl_rootpass
 
 mkdir -m 0750 conf.d # Fail if already configured!
 echo "Creating ${LDAP_SUFFIX} database for ${LDAP_DOMAIN}"
-slapadd -w -S "${LDAP_SERVERID}" -n 0 -F conf.d < <(envsubst <"${TEMPLATES_DIR}/config.ldif" | tee dump-config.ldif)
-slapadd -w -S "${LDAP_SERVERID}" -b "${LDAP_SUFFIX}" -F conf.d < <(envsubst <"${TEMPLATES_DIR}/mdb0.ldif" | tee dump-mdb0.ldif)
+slapadd -v -w -S "${LDAP_SERVERID}" -n 0 -F conf.d < <(envsubst <"${TEMPLATES_DIR}/config.ldif" | tee dump-config.ldif)
+slapadd -v -w -S "${LDAP_SERVERID}" -b "${LDAP_SUFFIX}" -F conf.d < <(envsubst <"${TEMPLATES_DIR}/mdb0.ldif" | tee dump-mdb0.ldif)
 slaptest -v -F conf.d
