@@ -18,6 +18,11 @@ ExecStart=/usr/bin/podman run \
     --volume=/dev/log:/dev/log \
     --network=host \
     ${OPENLDAP_SERVER_IMAGE}
+
+# Wait until TCP port is ready
+ExecStartPost=/usr/bin/sleep 1
+ExecStartPost=/usr/bin/bash -c "while ! exec 3<>/dev/tcp/${LDAP_IPADDR}/${LDAP_PORT}; do sleep 5 ; done"
+
 ExecStop=/usr/bin/podman stop --ignore --cidfile %t/openldap.ctr-id -t 10
 ExecStopPost=/usr/bin/podman rm --ignore -f --cidfile %t/openldap.ctr-id
 PIDFile=%t/openldap.pid
