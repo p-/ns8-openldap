@@ -62,6 +62,11 @@ Commands to run when slapd is stopped:
   server to the existing domain.
 * `leave-domain`: contact other (known) domain servers and tell them to
   remove this server from the domain.
+* `load-dumpfiles`: restore the LDAP database from LDIF dump files:
+  `dump-config.ldif`, `dump-mdb0.ldif`. Those files must exist and they
+  must be valid LDIF dump files. Only a single-provider domain backup can
+  be restored. Do not restore a backup if other providers of the same
+  domain are still alive!
 
 Other commands:
 * `sh`: start a shell. The image provides OpenLDAP client binaries, like

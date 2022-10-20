@@ -69,12 +69,12 @@ elif [ "${servers}" -eq 1 ]; then # join-first
     export LDAP_RIDX=$(( LDAP_JOINID * 2 ))
     export LDAP_RIDY=$(( LDAP_RIDX + 1 ))
 
-    mkdir conf.d # Fail if already configured!
+    mkdir -m 0750 conf.d # Fail if already configured!
     ldapmodify -x -D cn=config -w "${tmpl_rootpass}" -H "${joinurls}" < <(envsubst <"${TEMPLATES_DIR}/join-first.ldif" | tee join-first.ldif)
 
 else # join-other
     echo "[NOTICE] Join the existing domain of $servers servers"
-    mkdir conf.d # Fail if already configured!
+    mkdir -m 0750 conf.d # Fail if already configured!
     ldapmodify -x -D cn=config -w "${tmpl_rootpass}" -H "${joinurls}" < <(envsubst <"${TEMPLATES_DIR}/join-other.ldif" | tee join-other.ldif)
 
 fi

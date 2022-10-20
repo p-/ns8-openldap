@@ -36,13 +36,15 @@ ldap_suffix = os.environ['LDAP_SUFFIX']
 ip_address = os.environ['LDAP_IPADDR']
 tcp_port = os.environ['LDAP_PORT']
 
-if request['provision'] == 'new-domain':
-    bind_dn = f"cn={os.environ['LDAP_SVCUSER']},{ldap_suffix}"
-    bind_password = os.environ['LDAP_SVCPASS']
-elif request['provision'] == 'join-domain':
+if request.get('provision') == 'join-domain':
+    # Copy credentials from domain settings
     dominfo = Ldapproxy().get_domain(domain)
     bind_dn = dominfo['bind_dn']
     bind_password = dominfo['bind_password']
+else:
+    # Provision is new-domain or restore/import module
+    bind_dn = f"cn={os.environ['LDAP_SVCUSER']},{ldap_suffix}"
+    bind_password = os.environ['LDAP_SVCPASS']
 
 data={
     "node": str(node_id),

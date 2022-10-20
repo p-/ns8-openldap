@@ -1,0 +1,62 @@
+#!/bin/ash
+
+#
+# Copyright (C) 2022 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# shellcheck shell=dash disable=SC3001
+
+set -e # exit on error
+
+# Safety check: slapd must be stopped
+if [ -f run/slapd.pid ] && grep -q slapd "/proc/$(cat run/slapd.pid)/cmdline"; then
+    echo "Could not load dump files whilst slapd is running!" 1>&2
+    exit 1
+fi
+
+# Integrity check: ldif dump files must exist
+for dumpfile in dump-config.ldif dump-mdb0.ldif; do
+    if [ ! -f "${dumpfile}" ]; then
+        echo "Dump file not found ${dumpfile}" 1>&2
+        exit 2
+    fi
+done
+
+# Erase config and DB contents
+rm -rfv openldap-data conf.d
+
+# Re-create dirs
+mkdir -m 0750 -v conf.d
+mkdir -m 0700 -v openldap-data
+
+echo "Loading config dump..."
+cat dump-config.ldif | slapadd -v -F conf.d -b cn=config
+
+# Reset the server ID attribute and remove any syncrepl configuration
+slapmodify -v -F conf.d -b cn=config <<EOF
+dn: cn=config
+changetype: modify
+replace: olcServerID
+olcServerID: ${LDAP_SERVERID:?} ${tmpl_server_url:?}
+
+dn: olcDatabase={0}config,cn=config
+changetype: modify
+replace: olcSyncrepl
+-
+replace: olcMultiProvider
+
+dn: olcDatabase={2}mdb,cn=config
+changetype: modify
+replace: olcSyncrepl
+-
+replace: olcMultiProvider
+EOF
+
+# Load data DB
+echo "Loading DB dump..."
+slapadd -v -F conf.d -b "${LDAP_SUFFIX:?}" -l dump-mdb0.ldif
+
+# Ensure everything is OK
+echo "Testing the DB..."
+slaptest -v -F conf.d
