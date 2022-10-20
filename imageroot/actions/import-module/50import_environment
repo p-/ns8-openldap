@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2022 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+import sys
+import json
+import agent
+import os
+
+ienv = agent.read_envfile("import.env")
+server_id = int(os.environ['MODULE_ID'].removeprefix("openldap"))
+node_id = os.environ['NODE_ID']
+
+with agent.redis_connect() as rdb:
+    # Retrieve the node VPN IP address to bind on it
+    ip_address = rdb.hget(f'node/{node_id}/vpn', 'ip_address')
+    agent.assert_exp(ip_address is not None)
+
+for evar in [
+        'LDAP_SVCUSER',
+        'LDAP_SVCPASS',
+        'LDAP_DOMAIN',
+        'LDAP_SUFFIX',
+    ]:
+    agent.set_env(evar, ienv[evar])
+
+ldapenv = {
+    'LDAP_SERVERID': str(server_id),
+    'LDAP_PORT': os.environ['TCP_PORT'],
+    'LDAP_IPADDR': ip_address,
+    'LDAP_LOGTAG': os.environ['MODULE_ID'],
+}
+
+for lvar in ldapenv:
+    agent.set_env(lvar, ldapenv[lvar])
+
+agent.dump_env()

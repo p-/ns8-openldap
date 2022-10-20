@@ -1,0 +1,18 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2022 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+exec 1>&2
+set -e
+
+echo "Provision a new domain with imported DB dump:"
+podman run \
+    --env=LDAP_\* \
+    --log-driver=none \
+    --replace --name=new_domain --rm \
+    --volume=data:/var/lib/openldap:U,Z \
+    --network=host \
+    "${OPENLDAP_SERVER_IMAGE}" /usr/local/bin/new-domain

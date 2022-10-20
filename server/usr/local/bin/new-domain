@@ -38,13 +38,18 @@ tmpl_rootpass="$(slappasswd -g -u)$(slappasswd -g -u)$(slappasswd -g -u)"
 
 export tmpl_admpwh tmpl_rootpass
 
-mkdir -m 0750 conf.d # Fail if already configured!
-echo "Generating new domain ${LDAP_DOMAIN} configuration..."
+# Erase config and DB contents
+rm -rfv openldap-data conf.d
+
+# Re-create dirs
+mkdir -m 0750 -v conf.d
+mkdir -m 0700 -v openldap-data
+
+echo "Generating configuration for new domain ${LDAP_DOMAIN}..."
 slapadd -v -w -S "${LDAP_SERVERID}" -n 0 -F conf.d < <(envsubst <"${TEMPLATES_DIR}/config.ldif" | tee dump-config.ldif)
 
 if [ -f dump-mdb0.ldif ]; then
     echo "Restoring ${LDAP_SUFFIX} database for ${LDAP_DOMAIN}"
-    mkdir -m 0700 -vp openldap-data
     slapadd -v -F conf.d -b "${LDAP_SUFFIX}" -l dump-mdb0.ldif
 else
     echo "Creating ${LDAP_SUFFIX} database for ${LDAP_DOMAIN}"
