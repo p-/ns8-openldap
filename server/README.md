@@ -49,6 +49,13 @@ The container runs as `ldap` user. All data is written under
 `/var/lib/openldap`: mount it as a persistent volume to preserve the
 database over the time, after executing different commands.
 
+The initial volume must be empty to receive default volume contents from
+the container image, and provision the LDAP tree with default users and
+groups.
+
+As alternative, mount a volume containing the LDAP DB dump file
+`dump-mdb0.ldif`: the initial LDAP tree is then loaded from it.
+
 ## Commands
 
 The container entrypoint starts `slapd` if no arguments are specified.
@@ -57,7 +64,8 @@ Otherwise the arguments are assumed to be a command and are exec()'d.
 Commands to run when slapd is stopped:
 
 * `new-domain`: initializes a new domain database with single server
-  configuration.
+  configuration. If the `dump-mdb0.ldif` file exists, loads it otherwise
+  generate users and groups from the internal .ldif template file.
 * `join-domain SRVURLs`: contact other servers at _SRVURLs_ and add this
   server to the existing domain.
 * `leave-domain`: contact other (known) domain servers and tell them to

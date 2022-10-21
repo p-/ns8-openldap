@@ -26,7 +26,8 @@ set -e # exit on error
 
 joinurls=${1:?missing joinurls argument}
 
-if ldapwhoami >/dev/null 2>&1 ; then
+# Safety check: slapd must be stopped
+if pgrep -x slapd >/dev/null 2>&1; then
     echo "[ERROR] slapd must be stopped before running $0" 1>&2
     exit 1
 fi
@@ -80,7 +81,7 @@ else # join-other
 fi
 
 # Copy the configuration database 
-ldapsearch -LLL -x -D cn=config -w "${tmpl_rootpass}" -H "${joinurls}" -b cn=config '*' | slapadd -n 0 -F conf.d
+ldapsearch -LLL -x -D cn=config -w "${tmpl_rootpass}" -H "${joinurls}" -b cn=config '*' | slapadd -v -n 0 -F conf.d
 
 # Ensure the configuration is correct
 slaptest -u -v -F conf.d

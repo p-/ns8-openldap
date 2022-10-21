@@ -24,6 +24,7 @@ exec 1>&2
 set -e
 
 podman run --rm \
+    --replace --name=leave_domain \
     --log-driver=none \
     --network=host \
     --env=LDAP_\* \
